@@ -203,7 +203,7 @@ FROM staging_events se
 JOIN artists a ON (se.artist = a.name)
 JOIN songs s ON (a.artist_id = s.artist_id)
 WHERE se.page = 'NextSong' AND
-      se.session NOT IN (SELECT DISTINCT session_id FROM songplays)
+      se.sessionId NOT IN (SELECT DISTINCT session_id FROM songplays)
 """)
 
 # QUERY LISTS
