@@ -19,18 +19,18 @@ time_table_drop = "DROP TABLE IF EXISTS times"
 
 staging_events_table_create= ("""
 CREATE TABLE IF NOT EXISTS staging_events(
-artist varchar, 
+artist varchar,
 auth varchar,
 firstName varchar,
 gender varchar,
 iteminSession int,
 lastName varchar,
 length float8,
-level varchar, 
+level varchar,
 location varchar,
 method varchar,
 page varchar,
-registration float8,
+registration varchar,
 sessionId varchar,
 song varchar,
 status bigint,
@@ -76,7 +76,7 @@ user_id varchar,
 first_name varchar,
 last_name varchar,
 gender varchar,
-level varchar, 
+level varchar,
 PRIMARY KEY(user_id)
 )
 """)
@@ -109,8 +109,8 @@ start_time datetime,
 hour int,
 day int,
 week int,
-month int, 
-year int, 
+month int,
+year int,
 weekday varchar,
 PRIMARY KEY(start_time)
 )
@@ -144,19 +144,22 @@ SELECT DISTINCT userID as user_id,
                 lastName as last_name,
                 gender,
                 level
-FROM staging_events 
+FROM staging_events
 WHERE page='NextSong' AND
-      user_id IS NOT NULL
+      user_id IS NOT NULL and
+      user_id NOT IN (SELECT DISTINCT user_id FROM users)
 """)
 
 song_table_insert = ("""
 INSERT INTO songs(song_id, title, artist_id, year, duration)
-SELECT DISTINCT song_id, 
+SELECT DISTINCT song_id,
                 title,
                 artist_id,
                 year,
                 duration
 FROM staging_songs
+WHERE song_id IS NOT NULL AND
+      song_id NOT IN (SELECT DISTINCT song_id FROM songs)
 """)
 
 artist_table_insert = ("""
@@ -167,6 +170,8 @@ SELECT DISTINCT artist_id,
                  artist_latitude as latitude,
                  artist_longitude as longitude
 FROM staging_songs
+WHERE artist_id IS NOT NULL AND
+      artist_id NOT IN (SELECT DISTINCT artist_id FROM artists)
 """)
 
 time_table_insert = ("""
@@ -188,16 +193,17 @@ start_time, user_id, level, song_id, artist_id, session_id, location, user_agent
 )
 SELECT DISTINCT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' as start_time,
                 se.userid,
-                se.level, 
+                se.level,
                 s.song_id,
                 a.artist_id,
                 se.sessionId,
                 se.location,
-                se.userAgent                
+                se.userAgent
 FROM staging_events se
 JOIN artists a ON (se.artist = a.name)
 JOIN songs s ON (a.artist_id = s.artist_id)
-WHERE se.page = 'NextSong'
+WHERE se.page = 'NextSong' AND
+      se.session NOT IN (SELECT DISTINCT session_id FROM songplays)
 """)
 
 # QUERY LISTS
