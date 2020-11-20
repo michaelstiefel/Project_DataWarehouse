@@ -58,11 +58,11 @@ year int
 songplay_table_create = ("""
 CREATE TABLE songplays(
 songplay_id bigint identity(0,1),
-start_time datetime NOT NULL,
-user_id varchar NOT NULL,
+start_time datetime NOT NULL REFERENCES times (start_time),
+user_id varchar NOT NULL REFERENCES users (user_id),
 level varchar,
-song_id varchar NOT NULL,
-artist_id varchar NOT NULL,
+song_id varchar NOT NULL REFERENCES songs (song_id),
+artist_id varchar NOT NULL REFERENCES artists (artist_id),
 session_id varchar,
 location varchar,
 user_agent varchar,
@@ -85,7 +85,7 @@ song_table_create = ("""
 CREATE TABLE songs(
 song_id varchar,
 title varchar,
-artist_id varchar NOT NULL,
+artist_id varchar NOT NULL REFERENCES artists (artist_id),
 year int,
 duration float,
 PRIMARY KEY(song_id)
@@ -114,19 +114,6 @@ year int,
 weekday varchar,
 PRIMARY KEY(start_time)
 )
-""")
-
-add_foreign_key_songplays = ("""
-ALTER TABLE songplays
-ADD FOREIGN KEY(start_time) REFERENCES times(start_time),
-    FOREIGN KEY(user_id) REFERENCES users(user_id),
-    FOREIGN KEY(song_id) REFERENCES songs(song_id),
-    FOREIGN KEY(artist_id) REFERENCES artists(artist_id)
-""")
-
-add_foreign_key_songs = ("""
-ALTER TABLE songs
-ADD FOREIGN KEY(artist_id) REFERENCES artists(artist_id)
 """)
 
 # STAGING TABLES
@@ -222,7 +209,7 @@ FROM (SELECT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' as start_time FRO
 
 # QUERY LISTS
 
-create_table_queries = [staging_events_table_create, staging_songs_table_create, songplay_table_create, user_table_create, song_table_create, artist_table_create, time_table_create]
+create_table_queries = [staging_events_table_create, staging_songs_table_create, user_table_create, artist_table_create, time_table_create, song_table_create, songplay_table_create]
 drop_table_queries = [staging_events_table_drop, staging_songs_table_drop, songplay_table_drop, user_table_drop, song_table_drop, artist_table_drop, time_table_drop]
 copy_table_queries = [staging_events_copy, staging_songs_copy]
 insert_table_queries = [songplay_table_insert, user_table_insert, song_table_insert, artist_table_insert, time_table_insert]
