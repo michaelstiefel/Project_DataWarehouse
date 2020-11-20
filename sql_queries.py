@@ -50,7 +50,7 @@ artist_longitude float,
 artist_location varchar,
 artist_name varchar,
 title varchar,
-duration float,
+duration float8,
 year int
 );
 """)
@@ -58,11 +58,11 @@ year int
 songplay_table_create = ("""
 CREATE TABLE songplays(
 songplay_id bigint identity(0,1),
-start_time datetime,
-user_id varchar,
+start_time datetime NOT NULL,
+user_id varchar NOT NULL,
 level varchar,
-song_id varchar,
-artist_id varchar,
+song_id varchar NOT NULL,
+artist_id varchar NOT NULL,
 session_id varchar,
 location varchar,
 user_agent varchar,
@@ -85,7 +85,7 @@ song_table_create = ("""
 CREATE TABLE songs(
 song_id varchar,
 title varchar,
-artist_id varchar,
+artist_id varchar NOT NULL,
 year int,
 duration float,
 PRIMARY KEY(song_id)
@@ -116,8 +116,20 @@ PRIMARY KEY(start_time)
 )
 """)
 
-# STAGING TABLES
+add_foreign_key_songplays = ("""
+ALTER TABLE songplays
+ADD FOREIGN KEY(start_time) REFERENCES times(start_time),
+    FOREIGN KEY(user_id) REFERENCES users(user_id),
+    FOREIGN KEY(song_id) REFERENCES songs(song_id),
+    FOREIGN KEY(artist_id) REFERENCES artists(artist_id)
+""")
 
+add_foreign_key_songs = ("""
+ALTER TABLE songs
+ADD FOREIGN KEY(artist_id) REFERENCES artists(artist_id)
+""")
+
+# STAGING TABLES
 staging_events_copy = ("""
 COPY staging_events FROM {}
 CREDENTIALS 'aws_iam_role={}'
@@ -136,6 +148,26 @@ FORMAT AS JSON 'auto'
            config.get('IAM_ROLE', 'ARN'))
 
 # FINAL TABLES
+
+songplay_table_insert = ("""
+INSERT INTO songplays(
+start_time, user_id, level, song_id, artist_id, session_id, location, user_agent
+)
+SELECT DISTINCT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' as start_time,
+                se.userid,
+                se.level,
+                ss.song_id,
+                ss.artist_id,
+                se.sessionId,
+                se.location,
+                se.userAgent
+FROM staging_events se
+JOIN staging_songs ss ON (se.artist = ss.artist_name)
+                      AND (se.song = ss.title)
+                      AND (se.length = ss.duration)
+WHERE se.page = 'NextSong' AND
+      se.sessionId NOT IN (SELECT DISTINCT session_id FROM songplays)
+""")
 
 user_table_insert = ("""
 INSERT INTO users(user_id, first_name, last_name, gender, level)
@@ -187,24 +219,6 @@ FROM (SELECT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' as start_time FRO
                          AS T
 """)
 
-songplay_table_insert = ("""
-INSERT INTO songplays(
-start_time, user_id, level, song_id, artist_id, session_id, location, user_agent
-)
-SELECT DISTINCT TIMESTAMP 'epoch' + ts/1000 * interval '1 second' as start_time,
-                se.userid,
-                se.level,
-                s.song_id,
-                a.artist_id,
-                se.sessionId,
-                se.location,
-                se.userAgent
-FROM staging_events se
-JOIN artists a ON (se.artist = a.name)
-JOIN songs s ON (a.artist_id = s.artist_id)
-WHERE se.page = 'NextSong' AND
-      se.sessionId NOT IN (SELECT DISTINCT session_id FROM songplays)
-""")
 
 # QUERY LISTS
 
